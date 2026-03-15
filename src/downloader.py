@@ -3,14 +3,18 @@ import re
 import requests
 from bs4 import BeautifulSoup
 import urllib3
+from pathlib import Path
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class DataDownloader:
-    def __init__(self, output_dir="dados_tse"):
-        self.output_dir = output_dir
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
+    def __init__(self, output_dir=None):
+        if output_dir is None:
+            self.output_dir = Path(__file__).resolve().parent.parent / "data" / "raw"
+        else:
+            self.output_dir = Path(output_dir)
+            
+        self.output_dir.mkdir(parents=True, exist_ok=True)
             
     def _get_zip_links(self, url, patterns):
         try:
@@ -33,8 +37,8 @@ class DataDownloader:
         return list(set(links))
 
     def _download_file(self, url):
-        local_filename = os.path.join(self.output_dir, url.split('/')[-1])
-        if os.path.exists(local_filename):
+        local_filename = self.output_dir / url.split('/')[-1]
+        if local_filename.exists():
             print(f"[{local_filename}] já existe, ignorando download.")
             return local_filename
             
@@ -48,8 +52,8 @@ class DataDownloader:
             print(f"Sucesso: {local_filename}")
         except Exception as e:
             print(f"Erro ao baixar {url}: {e}")
-            if os.path.exists(local_filename):
-                os.remove(local_filename)
+            if local_filename.exists():
+                local_filename.unlink()
         return local_filename
 
     def download_eleitorado_2024(self):

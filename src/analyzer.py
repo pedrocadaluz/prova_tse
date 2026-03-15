@@ -2,6 +2,7 @@ import os
 import zipfile
 import pandas as pd
 import unicodedata
+from pathlib import Path
 
 def remove_accents(input_str):
     if pd.isna(input_str):
@@ -10,8 +11,12 @@ def remove_accents(input_str):
     return u"".join([c for c in nfkd_form if not unicodedata.combining(c)]).upper()
 
 class DataAnalyzer:
-    def __init__(self, data_dir="dados_tse"):
-        self.data_dir = data_dir
+    def __init__(self, data_dir=None, processed_dir=None):
+        base_dir = Path(__file__).resolve().parent.parent
+        self.data_dir = Path(data_dir) if data_dir else base_dir / "data" / "raw"
+        self.processed_dir = Path(processed_dir) if processed_dir else base_dir / "data" / "processed"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
         self.capitais = [
             "RIO BRANCO", "MACEIO", "MACAPA", "MANAUS", "SALVADOR", "FORTALEZA",
             "VITORIA", "GOIANIA", "SAO LUIS", "CUIABA", "CAMPO GRANDE", "BELO HORIZONTE",
@@ -29,8 +34,8 @@ class DataAnalyzer:
 
     def analisar_prefeitos_capitais_2024(self, output_file="prefeitos_capitais_2024.csv"):
         print("Analisando prefeitos eleitos nas capitais (2024)...")
-        zip_path = os.path.join(self.data_dir, "consulta_cand_2024.zip")
-        if not os.path.exists(zip_path):
+        zip_path = self.data_dir / "consulta_cand_2024.zip"
+        if not zip_path.exists():
             print(f"Arquivo não encontrado: {zip_path}")
             return None
 
@@ -69,11 +74,11 @@ class DataAnalyzer:
             return None
 
         df_final = pd.concat(dfs, ignore_index=True)
-        # Drop duplicates caso o mesmo prefeito esteja listado para 1º e 2º turno (algumas bases tem redundância)
         df_final = df_final.drop_duplicates(subset=['NM_UE', 'NM_URNA_CANDIDATO'])
         
-        df_final.to_csv(output_file, index=False, sep=';', encoding='latin-1')
-        print(f"Resultado salvo em {output_file}")
+        output_path = self.processed_dir / output_file
+        df_final.to_csv(output_path, index=False, sep=';', encoding='latin-1')
+        print(f"Resultado salvo em {output_path}")
         return df_final
 
     def consolidar_serie_mulheres_eleitas(self, output_file="serie_mulheres_eleitas.csv"):
@@ -84,8 +89,8 @@ class DataAnalyzer:
         eleito_str = ['ELEITO', 'ELEITO POR QP', 'ELEITO POR MÉDIA', 'ELEITO POR MEDIA']
 
         for ano in anos:
-            zip_path = os.path.join(self.data_dir, f"consulta_cand_{ano}.zip")
-            if not os.path.exists(zip_path):
+            zip_path = self.data_dir / f"consulta_cand_{ano}.zip"
+            if not zip_path.exists():
                 print(f"Arquivo pulado (não encontrado): {zip_path}")
                 continue
             
@@ -106,8 +111,9 @@ class DataAnalyzer:
             print(f"Ano {ano}: {total_mulheres_eleitas} mulheres eleitas.")
 
         df_final = pd.DataFrame(eleitos_por_ano)
-        df_final.to_csv(output_file, index=False, sep=';', encoding='latin-1')
-        print(f"Série consolidada e salva em {output_file}")
+        output_path = self.processed_dir / output_file
+        df_final.to_csv(output_path, index=False, sep=';', encoding='latin-1')
+        print(f"Série consolidada e salva em {output_path}")
         return df_final
 
 if __name__ == "__main__":

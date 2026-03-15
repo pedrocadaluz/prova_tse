@@ -3,10 +3,15 @@ import zipfile
 import glob
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 class DataProcessor:
-    def __init__(self, data_dir="dados_tse"):
-        self.data_dir = data_dir
+    def __init__(self, data_dir=None, processed_dir=None):
+        base_dir = Path(__file__).resolve().parent.parent
+        self.data_dir = Path(data_dir) if data_dir else base_dir / "data" / "raw"
+        self.processed_dir = Path(processed_dir) if processed_dir else base_dir / "data" / "processed"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_csv_from_zip(self, zip_path, pattern=".csv"):
         """Retorna o nome do arquivo dentro do ZIP que casa com o padrão."""
@@ -23,8 +28,8 @@ class DataProcessor:
         print("Iniciando processamento do eleitorado e infraestrutura (2024)...")
         
         # 1. Obter mapeamento de seções para locais de votação
-        locais_zip = os.path.join(self.data_dir, "eleitorado_local_votacao_2024.zip")
-        if not os.path.exists(locais_zip):
+        locais_zip = self.data_dir / "eleitorado_local_votacao_2024.zip"
+        if not locais_zip.exists():
             print(f"Arquivo não encontrado: {locais_zip}")
             return None
             
@@ -44,7 +49,7 @@ class DataProcessor:
             return None
 
         # 2. Processar arquivos estaduais de perfil do eleitor
-        perfil_files = glob.glob(os.path.join(self.data_dir, "perfil_eleitor_secao_2024_[A-Z][A-Z].zip"))
+        perfil_files = list(self.data_dir.glob("perfil_eleitor_secao_2024_[A-Z][A-Z].zip"))
         
         lista_agregados = []
         # Lista para armazenar dados por UF antes do merge
@@ -54,7 +59,7 @@ class DataProcessor:
             if not csv_name:
                 continue
                 
-            print(f"Processando {os.path.basename(p_file)}...")
+            print(f"Processando {p_file.name}...")
             with zipfile.ZipFile(p_file, 'r') as zf:
                 with zf.open(csv_name) as f:
                     cols = ['SG_UF', 'CD_MUNICIPIO', 'NM_MUNICIPIO', 'NR_ZONA', 'NR_SECAO', 'DS_GENERO', 'QT_ELEITORES_PERFIL']
@@ -147,9 +152,10 @@ class DataProcessor:
         df_final['PCT_MASCULINO'] = np.where(df_final['ELEITORADO_TOTAL'] > 0, (df_final['ELEITORADO_MASCULINO'] / df_final['ELEITORADO_TOTAL']) * 100, 0)
         
         # Salvar o csv final
-        df_final.to_csv(output_file, index=False, sep=';', encoding='latin-1')
-        print(f"Processamento concluído. Salvo em: {output_file}")
-        return output_file
+        output_path = self.processed_dir / output_file
+        df_final.to_csv(output_path, index=False, sep=';', encoding='latin-1')
+        print(f"Processamento concluído. Salvo em: {output_path}")
+        return output_path
 
 if __name__ == "__main__":
     processor = DataProcessor()
