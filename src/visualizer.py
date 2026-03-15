@@ -83,14 +83,22 @@ def generate_mapa_deficiencia(data_dir=None, reports_dir=None, output_html="mapa
         fig.update_geos(fitbounds="locations", visible=False)
         output_path = reports_dir / output_html
         fig.write_html(str(output_path))
-        print(f"Mapa salvo em {output_path}")
+        print(f"Mapa interativo salvo em {output_path}")
+        
+        output_png = reports_dir / output_html.replace('.html', '.png')
+        fig.write_image(str(output_png))
+        print(f"Mapa estático salvo em {output_png}")
     except Exception as e:
         print(f"Não foi possível gerar o mapa coroplético devido à falta de acesso ao geojson: {e}")
         # Fallback para gráfico de barras
         fig = px.bar(df_agrupado, x='UF', y='TOTAL_DEFICIENCIA', title="Eleitores com Deficiência por UF - 2024")
         fallback_path = reports_dir / output_html.replace('mapa', 'grafico_barras')
         fig.write_html(str(fallback_path))
-        print(f"Fallback para gráfico de barras salvo: {fallback_path}")
+        print(f"Fallback (interativo) salvo: {fallback_path}")
+        
+        fallback_png = reports_dir / str(getattr(fallback_path, 'name', fallback_path)).replace('.html', '.png')
+        fig.write_image(str(fallback_png))
+        print(f"Fallback (estático) salvo: {fallback_png}")
 
 def plotar_serie_mulheres(input_file="serie_mulheres_eleitas.csv", processed_dir=None, reports_dir=None, output_html="serie_mulheres_eleitas.html"):
     print("Gerando gráfico da série histórica (2016-2024)...")
@@ -128,9 +136,15 @@ def plotar_serie_mulheres(input_file="serie_mulheres_eleitas.csv", processed_dir
     
     # Garantir que o eixo X mostre os anos inteiros
     fig.update_xaxes(type='category')
+    fig.update_yaxes(rangemode="tozero")
+    
     output_path = reports_dir / output_html
     fig.write_html(str(output_path))
-    print(f"Gráfico de linha salvo em {output_path}")
+    print(f"Gráfico de linha interativo salvo em {output_path}")
+    
+    output_png = reports_dir / output_html.replace('.html', '.png')
+    fig.write_image(str(output_png))
+    print(f"Gráfico de linha estático salvo em {output_png}")
 
 if __name__ == "__main__":
     generate_mapa_deficiencia()

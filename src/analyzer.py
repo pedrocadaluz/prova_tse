@@ -17,13 +17,13 @@ class DataAnalyzer:
         self.processed_dir = Path(processed_dir) if processed_dir else base_dir / "data" / "processed"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.processed_dir.mkdir(parents=True, exist_ok=True)
-        self.capitais = [
-            "RIO BRANCO", "MACEIO", "MACAPA", "MANAUS", "SALVADOR", "FORTALEZA",
-            "VITORIA", "GOIANIA", "SAO LUIS", "CUIABA", "CAMPO GRANDE", "BELO HORIZONTE",
-            "BELEM", "JOAO PESSOA", "CURITIBA", "RECIFE", "TERESINA", "RIO DE JANEIRO",
-            "NATAL", "PORTO ALEGRE", "PORTO VELHO", "BOA VISTA", "FLORIANOPOLIS",
-            "SAO PAULO", "ARACAJU", "PALMAS"
-        ]
+        self.capitais = {
+            "AC-RIO BRANCO", "AL-MACEIO", "AP-MACAPA", "AM-MANAUS", "BA-SALVADOR", "CE-FORTALEZA",
+            "ES-VITORIA", "GO-GOIANIA", "MA-SAO LUIS", "MT-CUIABA", "MS-CAMPO GRANDE", "MG-BELO HORIZONTE",
+            "PA-BELEM", "PB-JOAO PESSOA", "PR-CURITIBA", "PE-RECIFE", "PI-TERESINA", "RJ-RIO DE JANEIRO",
+            "RN-NATAL", "RS-PORTO ALEGRE", "RO-PORTO VELHO", "RR-BOA VISTA", "SC-FLORIANOPOLIS",
+            "SP-SAO PAULO", "SE-ARACAJU", "TO-PALMAS"
+        }
 
     def _get_csv_from_zip(self, zip_path, pattern=".csv"):
         with zipfile.ZipFile(zip_path, 'r') as zf:
@@ -43,10 +43,11 @@ class DataAnalyzer:
         # Vou procurar todos os CSVs iterativamente se separados por estado
         dfs = []
         with zipfile.ZipFile(zip_path, 'r') as zf:
-            csv_files = [n for n in zf.namelist() if n.endswith('.csv') and "leiame" not in n.lower()]
+            # Evitar arquivos consolidados do Brasil para não haver dupla contagem e poupar memória
+            csv_files = [n for n in zf.namelist() if n.endswith('.csv') and "leiame" not in n.lower() and "brasil" not in n.lower() and not n.lower().endswith('_br.csv')]
             for csv_name in csv_files:
                 with zf.open(csv_name) as f:
-                    cols = ['DS_CARGO', 'NM_UE', 'NM_URNA_CANDIDATO', 'DS_SIT_TOT_TURNO']
+                    cols = ['SG_UF', 'DS_CARGO', 'NM_UE', 'NM_URNA_CANDIDATO', 'DS_SIT_TOT_TURNO']
                     # Usar read_csv com subset the cols, on error ignore
                     try:
                         df = pd.read_csv(f, sep=';', encoding='latin-1', usecols=lambda c: c in cols)
@@ -61,9 +62,14 @@ class DataAnalyzer:
                         # Remover acentos do nome do município
                         df['NM_MUNICIPIO_NORM'] = df['NM_UE'].apply(remove_accents)
                         
+                        # Criar chave UF-MUNICIPIO para filtragem estrita
+                        df['CHAVE_CAPITAL'] = df['SG_UF'] + "-" + df['NM_MUNICIPIO_NORM']
+                        
                         # Filtrar capitais
-                        df_caps = df[df['NM_MUNICIPIO_NORM'].isin(self.capitais)]
+                        df_caps = df[df['CHAVE_CAPITAL'].isin(self.capitais)]
                         if not df_caps.empty:
+                            # Limpar colunas auxiliares para economizar memória
+                            df_caps = df_caps.drop(columns=['NM_MUNICIPIO_NORM', 'CHAVE_CAPITAL'])
                             dfs.append(df_caps)
                     except ValueError as e:
                         # Pular se as colunas não existirem
@@ -96,7 +102,8 @@ class DataAnalyzer:
             
             total_mulheres_eleitas = 0
             with zipfile.ZipFile(zip_path, 'r') as zf:
-                csv_files = [n for n in zf.namelist() if n.endswith('.csv') and "leiame" not in n.lower()]
+                # Evitar dupla contagem ignorando os arquivos consolidados do Brasil BRASIL/BR
+                csv_files = [n for n in zf.namelist() if n.endswith('.csv') and "leiame" not in n.lower() and "brasil" not in n.lower() and not n.lower().endswith('_br.csv')]
                 for csv_name in csv_files:
                     with zf.open(csv_name) as f:
                         cols = ['DS_GENERO', 'DS_SIT_TOT_TURNO']

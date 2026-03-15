@@ -39,11 +39,19 @@ class DataProcessor:
             print("Carregando locais de votação...")
             with zipfile.ZipFile(locais_zip, 'r') as zf:
                 with zf.open(csv_name) as f:
-                    # Carregar apenas as colunas essenciais
-                    cols = ['SG_UF', 'CD_MUNICIPIO', 'NR_ZONA', 'NR_SECAO', 'NR_LOCAL_VOTACAO']
+                    # Carregar apenas as colunas essenciais, incluindo NR_TURNO para remover duplicações
+                    cols = ['SG_UF', 'CD_MUNICIPIO', 'NR_ZONA', 'NR_SECAO', 'NR_LOCAL_VOTACAO', 'NR_TURNO']
                     dtypes = {'SG_UF': 'category', 'CD_MUNICIPIO': 'int32', 
-                              'NR_ZONA': 'int32', 'NR_SECAO': 'int32', 'NR_LOCAL_VOTACAO': 'int32'}
-                    df_locais = pd.read_csv(f, sep=';', encoding='latin-1', usecols=cols, dtype=dtypes)
+                              'NR_ZONA': 'int32', 'NR_SECAO': 'int32', 'NR_LOCAL_VOTACAO': 'int32', 'NR_TURNO': 'int32'}
+                    
+                    df_locais_all = pd.read_csv(f, sep=';', encoding='latin-1', usecols=lambda c: c in cols, dtype=dtypes)
+                    
+                    # Filtrar apenas 1º turno para evitar a duplicação do eleitorado
+                    if 'NR_TURNO' in df_locais_all.columns:
+                        df_locais = df_locais_all[df_locais_all['NR_TURNO'] == 1].copy()
+                        df_locais.drop(columns=['NR_TURNO'], inplace=True)
+                    else:
+                        df_locais = df_locais_all
         else:
             print("CSV de locais de votação não encontrado no ZIP.")
             return None
