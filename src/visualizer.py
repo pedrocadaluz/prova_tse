@@ -18,7 +18,7 @@ def generate_mapa_deficiencia(data_dir=None, reports_dir=None, output_html="mapa
         print("Aviso: 'plotly' não instalado. Instale usando 'pip install plotly'")
         return
 
-    zip_path = data_dir / "perfil_eleitor_deficiencia_2024.zip"
+    zip_path = data_dir / "perfil_eleitorado_2024.zip"
     if not zip_path.exists():
         print(f"Arquivo não encontrado: {zip_path}")
         return
@@ -36,14 +36,30 @@ def generate_mapa_deficiencia(data_dir=None, reports_dir=None, output_html="mapa
                 # Ler a primeira linha do CSV para descobrir os nomes exatos das colunas
                 head_df = pd.read_csv(f, sep=';', encoding='latin-1', nrows=1)
                 col_uf = [c for c in head_df.columns if 'UF' in c.upper()][0] if any('UF' in c.upper() for c in head_df.columns) else 'SG_UF'
-                col_qtde = [c for c in head_df.columns if 'QT_ELEITORES' in c.upper()][0] if any('QT_ELEITORES' in c.upper() for c in head_df.columns) else 'QT_ELEITORES_PERFIL_DEFICIENCIA'
+                
+                if 'QT_ELEITORES_INC_DEFICIENCIA' in head_df.columns:
+                    col_qtde = 'QT_ELEITORES_INC_DEFICIENCIA'
+                elif 'QT_ELEITORES_DEFICIENCIA' in head_df.columns:
+                    col_qtde = 'QT_ELEITORES_DEFICIENCIA'
+                else:
+                    col_qtde = None
                 
                 f.seek(0)
                 
                 try:
-                    df = pd.read_csv(f, sep=';', encoding='latin-1', usecols=[col_uf])
-                    df = df.rename(columns={col_uf: 'UF'})
-                    df['TOTAL_DEFICIENCIA'] = 1
+                    if col_qtde:
+                        # Lê tanto a coluna da UF quanto a coluna da quantidade de eleitores
+                        df = pd.read_csv(f, sep=';', encoding='latin-1', usecols=[col_uf, col_qtde])
+                        
+                        # Renomeia as colunas para o padrão esperado pelo resto do código
+                        df = df.rename(columns={col_uf: 'UF', col_qtde: 'TOTAL_DEFICIENCIA'})
+                    else:
+                        # Fallback seguro
+                        df = pd.read_csv(f, sep=';', encoding='latin-1', usecols=[col_uf])
+                        df = df.rename(columns={col_uf: 'UF'})
+                        df['TOTAL_DEFICIENCIA'] = 1
+                    
+                    # Agrupa e soma a quantidade real de eleitores
                     df_agg = df.groupby('UF', as_index=False)['TOTAL_DEFICIENCIA'].sum()
                     dfs.append(df_agg)
                 except ValueError as e:
@@ -55,6 +71,12 @@ def generate_mapa_deficiencia(data_dir=None, reports_dir=None, output_html="mapa
 
     df_final = pd.concat(dfs, ignore_index=True)
     df_agrupado = df_final.groupby('UF', as_index=False)['TOTAL_DEFICIENCIA'].sum()
+
+    # Resumo para conferência com a realidade dos dados
+    total_nacional = df_agrupado['TOTAL_DEFICIENCIA'].sum()
+    print("\n--- Eleitores com deficiência por UF (2024) ---")
+    print(df_agrupado.sort_values('UF').to_string(index=False))
+    print(f"\nTotal nacional: {total_nacional:,}".replace(",", "."))
 
     # Gerar mapa (choropleth) 
     # Precisamos de um geojson do Brasil para plotar no plotly

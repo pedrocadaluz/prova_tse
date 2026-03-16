@@ -57,15 +57,27 @@ class DataDownloader:
         return local_filename
 
     def download_eleitorado_2024(self):
-        url = "https://dadosabertos.tse.jus.br/dataset/eleitorado-2024"
+        """
+        Baixa os arquivos de eleitorado e, em especial, o arquivo geral de perfil
+        do eleitorado usado para o cálculo de eleitores com deficiência.
+        """
+        year = 2024
+
+        url = f"https://dadosabertos.tse.jus.br/dataset/eleitorado-{year}"
         patterns = [
-            r"perfil_eleitor_deficiencia_2024\.zip$",
-            r"eleitorado_local_votacao_2024\.zip$",
-            r"perfil_eleitor_secao_2024_[A-Z]{2}\.zip$"
+            rf"eleitorado_local_votacao_{year}\.zip$",
+            rf"perfil_eleitor_secao_{year}_[A-Z]{2}\.zip$"
         ]
         links = self._get_zip_links(url, patterns)
         for link in links:
             self._download_file(link)
+
+        # Arquivo geral de eleitorado, com contagem única de eleitores com deficiência
+        perfil_eleitorado_url = (
+            f"https://cdn.tse.jus.br/estatistica/sead/odsele/perfil_eleitorado/"
+            f"perfil_eleitorado_{year}.zip"
+        )
+        self._download_file(perfil_eleitorado_url)
 
     def download_candidatos_2016(self):
         url = "https://dadosabertos.tse.jus.br/dataset/candidatos-2016"
